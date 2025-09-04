@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Backend Consumer infrastructure
+
+Parameters:
+  ProviderEndpointUrl:
+    Type: String
+    Description: The WebSocket API endpoint URL of the provider service
+
+Resources:
+  ApwConsumerWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: apw-consumer
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.action
+
+  ConsumerStreamQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: sqs-consumer
+      VisibilityTimeout: 900
+
+  ConsumerDispatcherLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ConsumerDispatcherPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt ConsumerStreamQueue.Arn
+
+  ConsumerDispatcherLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: lambda-consumer-dispatcher
+      Handler: index.lambda_handler
+      Role: !GetAtt ConsumerDispatcherLambdaRole.Arn
+      Runtime: python3.11
+      Timeout: 30
+      Environment:
+        Variables:
+          STREAM_QUEUE_URL: !Ref ConsumerStreamQueue
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              pass
+
+  ConsumerDispatcherLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ConsumerDispatcherLambda
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApwConsumerWebSocketApi}/*/*
+
+  ConsumerWorkerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ConsumerWorkerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt ConsumerStreamQueue.Arn
+              - Effect: Allow
+                Action:
+                  - execute-api:ManageConnections
+                Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApwConsumerWebSocketApi}/*/POST/@connections/*
+
+  ConsumerWorkerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: lambda-consumer-worker
+      Handler: index.lambda_handler
+      Role: !GetAtt ConsumerWorkerLambdaRole.Arn
+      Runtime: python3.11
+      Timeout: 900
+      Environment:
+        Variables:
+          PROVIDER_ENDPOINT_URL: !Ref ProviderEndpointUrl
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              pass
+
+  ConsumerWorkerLambdaSQSTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      EventSourceArn: !GetAtt ConsumerStreamQueue.Arn
+      FunctionName: !GetAtt ConsumerWorkerLambda.Arn
+      Enabled: true
+
+  ApwConsumerWebSocketIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApwConsumerWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConsumerDispatcherLambda.Arn}/invocations
+
+  ApwConsumerWebSocketRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApwConsumerWebSocketApi
+      RouteKey: sendPrompt
+      Target: !Sub integrations/${ApwConsumerWebSocketIntegration}
+
+  ApwConsumerWebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ApwConsumerWebSocketApi
+      StageName: prod
+      AutoDeploy: true
+
+Outputs:
+  ConsumerWebSocketApiEndpoint:
+    Description: WebSocket API endpoint
+    Value: !Sub wss://${ApwConsumerWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod/
