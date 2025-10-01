@@ -48,4 +48,9 @@ aws cloudformation delete-stack --stack-name apw-hon
 
 ## To Do
 
+- [ ] Enable / Disable feature
+   - [ ] Create AppConfig resource (IaC)
+   - [ ] Modify lambda to consume it
+   - [ ] Change this README
+   - [ ] Change principal README
 - [ ] Integrate with Bedrock
