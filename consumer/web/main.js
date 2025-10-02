@@ -1,5 +1,5 @@
 // Altere a URL abaixo para a do API Gateway WebSocket "apw-app" após o deploy
-const WS_URL = 'wss://l8386el2u5.execute-api.us-east-1.amazonaws.com/prod/';
+const WS_URL = 'wss://nkmudo1tmg.execute-api.us-east-1.amazonaws.com/prod/';
 
 const chatWindow = document.getElementById('chat-window');
 const promptForm = document.getElementById('prompt-form');

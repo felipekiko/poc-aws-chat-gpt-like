@@ -18,6 +18,7 @@ cd consumer/iac
 aws cloudformation deploy \
   --template-file template.yaml \
   --stack-name poc-chat-gpt-consumer \
+  --parameter-overrides ProviderEndpointUrl=YOUR_PROVIDER_ENDPOINT_URL \
   --capabilities CAPABILITY_IAM
 ```
 
@@ -26,24 +27,35 @@ aws cloudformation deploy \
 #### Consumer Dispatcher
 
 ```bash
-cd lambdas/lambda-consumer-dispatcher
+cd ../lambdas/lambda-consumer-dispatcher
 zip -r lambda.zip .
 
 aws lambda update-function-code \
   --function-name lambda-consumer-dispatcher \
   --zip-file fileb://lambda.zip
+
+rm lambda.zip
 ```
 
 #### Consumer Worker
 
 ```bash
 cd ../lambda-consumer-worker
+
+mkdir temp
+cd temp
+cp ../index.py .
+cp ../requirements.txt .
+
 pip install -r requirements.txt -t .
 zip -r lambda.zip .
 
 aws lambda update-function-code \
   --function-name lambda-consumer-worker \
   --zip-file fileb://lambda.zip
+
+cd ../
+rm -r temp
 ```
 
 ### 3. Update Frontend Configuration
@@ -51,9 +63,8 @@ aws lambda update-function-code \
 1. Get the WebSocket URL from CloudFormation outputs:
    ```bash
    aws cloudformation describe-stacks \
-     --stack-name apw-app \
-     --query "Stacks[0].Outputs[?OutputKey=='WebSocketURL'].OutputValue" \
-     --output text
+     --stack-name poc-chat-gpt-consumer \
+     --query "Stacks[0].Outputs"
    ```
 
 2. Update the WebSocket URL in the frontend:

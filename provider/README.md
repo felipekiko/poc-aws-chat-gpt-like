@@ -18,6 +18,9 @@ aws cloudformation deploy \
   --template-file template.yaml \
   --stack-name poc-chat-gpt-provider \
   --capabilities CAPABILITY_IAM
+aws cloudformation describe-stacks \
+  --stack-name poc-chat-gpt-provider \
+  --query "Stacks[0].Outputs"
 ```
 
 ### 2. Deploy Lambda Functions
@@ -25,12 +28,14 @@ aws cloudformation deploy \
 #### Provider Dispatcher
 
 ```bash
-cd lambdas/lambda-provider-dispatcher
+cd ../lambdas/lambda-provider-dispatcher
 zip -r lambda.zip .
 
 aws lambda update-function-code \
   --function-name lambda-provider-dispatcher \
   --zip-file fileb://lambda.zip
+
+rm lambda.zip
 ```
 
 #### Provider Worker
@@ -42,4 +47,6 @@ zip -r lambda.zip .
 aws lambda update-function-code \
   --function-name lambda-provider-worker \
   --zip-file fileb://lambda.zip
+
+rm lambda.zip
 ```
