@@ -40,6 +40,15 @@ Resources:
                 Action:
                   - sqs:SendMessage
                 Resource: !GetAtt ProviderStreamQueue.Arn
+              - Effect: Allow
+                Action:
+                  - appconfig:GetLatestConfiguration
+                  - appconfig:StartConfigurationSession
+                Resource: !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${AppConfigApplication}/environment/${AppConfigEnvironment}/configuration/${AppConfigConfigurationProfile}
+              - Effect: Allow
+                Action:
+                  - execute-api:ManageConnections
+                Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApwProviderWebSocketApi}/*/POST/@connections/*
 
   ProviderDispatcherLambda:
     Type: AWS::Lambda::Function
@@ -52,6 +61,9 @@ Resources:
       Environment:
         Variables:
           STREAM_QUEUE_URL: !Ref ProviderStreamQueue
+          APP_CONFIG_APPLICATION: !Ref AppConfigApplication
+          APP_CONFIG_ENVIRONMENT: !Ref AppConfigEnvironment
+          APP_CONFIG_CONFIGURATION: !Ref AppConfigConfigurationProfile
       Code:
         ZipFile: |
           def lambda_handler(event, context):
