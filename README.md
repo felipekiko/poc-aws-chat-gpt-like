@@ -42,8 +42,8 @@ To remove all resources:
 
 ```bash
 # Delete CloudFormation stacks
-aws cloudformation delete-stack --stack-name apw-app
-aws cloudformation delete-stack --stack-name apw-hon
+aws cloudformation delete-stack --stack-name poc-chat-gpt-consumer
+aws cloudformation delete-stack --stack-name poc-chat-gpt-provider
 ```
 
 ## To Do
